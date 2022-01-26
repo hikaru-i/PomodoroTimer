@@ -1,0 +1,54 @@
+﻿<Window x:Class="PomodoroTimer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        xmlns:local="clr-namespace:PomodoroTimer"
+        mc:Ignorable="d"
+
+        Title="Pomodoro Timer" Height="80" Width="180"
+        Topmost="True" ShowInTaskbar="False" WindowStyle="None" ResizeMode="NoResize"
+        AllowsTransparency="True" Background="#00000000"
+        
+        MouseLeftButtonDown="Window_MouseLeftButtonDown"
+        MouseMove="Window_MouseMove"
+        MouseLeftButtonUp="Window_MouseLeftButtonUp" ContextMenuOpening="Window_ContextMenuOpening">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0" UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <sys:Int32 x:Key="TEST">4</sys:Int32>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="8"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="8"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="8"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="8"/>
+        </Grid.RowDefinitions>
+
+        <Rectangle x:Name="Panel" Grid.Row="1" Grid.Column="1" Stroke="Gray" RadiusY="4" RadiusX="4"/>
+        <Viewbox Grid.Row="1" Grid.Column="1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock x:Name="TextBlock_Time" TextWrapping="NoWrap" FontSize="72" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Normal" FontFamily="Arial" Margin="4,4,4,4"/>
+                <TextBox x:Name="TextBox_Time" TextWrapping="NoWrap" FontSize="72" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Normal" FontFamily="Arial" Visibility="Hidden" KeyDown="TextBox_Time_KeyDown" Margin="4,4,4,4" BorderThickness="4"/>
+            </Grid>
+        </Viewbox>
+
+    </Grid>
+</Window>
