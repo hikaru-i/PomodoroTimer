@@ -16,40 +16,54 @@ namespace PomodoroTimer
 {
     public partial class MainWindow : Window
     {
-        static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
-        const uint SWP_NOSIZE = 0x0001;
-        const uint SWP_NOMOVE = 0x0002;
+        public const int grid_margin = 8;
+        public const int resize_border_size = 4;
+        public const int min_window_size = 16 + (grid_margin * 2);
 
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
-
-        private struct TimePeriod
+        private struct Preset
         {
-            public static implicit operator TimePeriod(TimeSpan TimeSpan_)
-            {
-                TimePeriod t = new TimePeriod();
-                t.TimeSpan = TimeSpan_;
-                return t;
-            }
-
-            public static TimePeriod FromString(string s)
-            {
-                try {
-                    Match m = Regex.Match(s, @"^(?:(?:(?:(?<dd>[-+]?\d+):)?(?<hh>[-+]?\d+):)?(?<mm>[-+]?\d+):)?(?<ss>[-+]?\d+)$");
-                    int dd = m.Groups["dd"].Success ? int.Parse(m.Groups["dd"].Value) : 0;
-                    int hh = m.Groups["hh"].Success ? int.Parse(m.Groups["hh"].Value) : 0;
-                    int mm = m.Groups["mm"].Success ? int.Parse(m.Groups["mm"].Value) : 0;
-                    int ss = m.Groups["ss"].Success ? int.Parse(m.Groups["ss"].Value) : 0;
-                    return (TimePeriod) TimeSpan.FromSeconds(((dd * 24 + hh) * 60 + mm) * 60 + ss);
-                } catch (Exception) {
-                    return (TimePeriod) TimeSpan.Zero;
-                }
-            }
+            public string Text;
+            public TimeSpan Duration;
+            public Brush ForegroundBrush;
+            public Brush BackgroundBrush;
+            public Brush TimeoutForegroundBrush;
+            public Brush TimeoutBackgroundBrush;
 
             public override string ToString()
             {
-                int ss = (int) Math.Ceiling(TimeSpan.TotalSeconds);
+                return Text;
+            }
+        };
+
+        private class TimeText
+        {
+            public string Text { get; set; }
+            public TimeSpan TimeSpan { get; set; }
+
+            public TimeText(TimeSpan span)
+            {
+                Text = TimeSpanToText(span);
+                TimeSpan = span;
+            }
+
+            public TimeText(string text)
+                : this(TextToTimeSpan(text))
+            {
+            }
+
+            private static TimeSpan TextToTimeSpan(string text)
+            {
+                Match m = Regex.Match(text, @"^(?:(?:(?:(?<dd>[^:]+):)?(?<hh>[^:]+):)?(?<mm>[^:]+):)?(?<ss>[^:]+)$");
+                int dd = m.Groups["dd"].Success ? int.Parse(m.Groups["dd"].Value) : 0;
+                int hh = m.Groups["hh"].Success ? int.Parse(m.Groups["hh"].Value) : 0;
+                int mm = m.Groups["mm"].Success ? int.Parse(m.Groups["mm"].Value) : 0;
+                int ss = m.Groups["ss"].Success ? int.Parse(m.Groups["ss"].Value) : 0;
+                return TimeSpan.FromSeconds(((dd * 24 + hh) * 60 + mm) * 60 + ss);
+            }
+
+            private static string TimeSpanToText(TimeSpan span)
+            {
+                int ss = (int) Math.Ceiling(span.TotalSeconds);
 
                 string sign = ss < 0 ? "-" : "";
                 ss = Math.Abs(ss);
@@ -68,22 +82,21 @@ namespace PomodoroTimer
                     hh > 0 ? hh.ToString() + ":" : "",
                     mm, ss);
             }
-
-            public TimeSpan TimeSpan { get; set; }
         };
 
-        public const int grid_margin = 8;
-        public const int resize_border_size = 4;
-        public const int min_window_size = 16 + (grid_margin * 2);
-
-        private Point? drag_start_cursor_pos;
-        private Rect? drag_start_window_rect;
-
+        private IConfigurationRoot app_settings;
+        public Brush CustomForegroundBrush;
+        public Brush CustomBackgroundBrush;
+        public Brush CustomTimeoutForegroundBrush;
+        public Brush CustomTimeoutBackgroundBrush;
         private DateTime? time_limit;
+        Preset? preset;
+
         private DateTime last_tick_time = DateTime.Now;
         private DateTime last_top_most_time = DateTime.Now;
 
-        private IConfigurationRoot app_settings;
+        private Point? drag_start_cursor_pos;
+        private Rect? drag_start_window_rect;
 
         public MainWindow()
         {
@@ -96,9 +109,9 @@ namespace PomodoroTimer
 
             ChangeToken.OnChange(
                 () => app_settings.GetReloadToken(),
-                () => Dispatcher.Invoke(LoadFromAppSettings));
+                () => Dispatcher.Invoke(ReloadFont));
 
-            LoadFromAppSettings();
+            ReloadFont();
 
             ContextMenu = CreateContextMenu();
 
@@ -108,7 +121,7 @@ namespace PomodoroTimer
             timer.Start();
         }
 
-        void LoadFromAppSettings()
+        void ReloadFont()
         {
             var font_name = app_settings["FontFamily"];
             if (font_name != null) {
@@ -121,29 +134,67 @@ namespace PomodoroTimer
             }
         }
 
-        TimePeriod[] LoadPresets()
+        Preset[] LoadPresets()
         {
-            var presets = new List<TimePeriod>();
+            var presets = new List<Preset>();
 
-            if (app_settings != null) {
-                for (int i = 0; ; i++) {
-                    var p = app_settings["Presets:" + i];
-                    if (p == null) break;
-                    presets.Add(TimePeriod.FromString(p));
-                }
+            CustomForegroundBrush = new SolidColorBrush((Color) ColorConverter.ConvertFromString(app_settings["CustomForegroundColor"]));
+            CustomBackgroundBrush = new SolidColorBrush((Color) ColorConverter.ConvertFromString(app_settings["CustomBackgroundColor"]));
+            CustomTimeoutForegroundBrush = new SolidColorBrush((Color) ColorConverter.ConvertFromString(app_settings["CustomTimeoutForegroundColor"]));
+            CustomTimeoutBackgroundBrush = new SolidColorBrush((Color) ColorConverter.ConvertFromString(app_settings["CustomTimeoutBackgroundColor"]));
+
+            for (int i = 0; ; i++) {
+                var text = app_settings["Presets:" + i + ":Text"];
+                var duration = app_settings["Presets:" + i + ":Duration"];
+                var text_color = app_settings["Presets:" + i + ":ForegroundColor"];
+                var background_color = app_settings["Presets:" + i + ":BackgroundColor"];
+                var timeout_text_color = app_settings["Presets:" + i + ":TimeoutForegroundColor"];
+                var timeout_background_color = app_settings["Presets:" + i + ":TimeoutBackgroundColor"];
+
+                if (text == null || duration == null || text_color == null || background_color == null) break;
+
+                Preset p = new Preset();
+                p.Text = text;
+                p.Duration = new TimeText(duration).TimeSpan;
+                p.ForegroundBrush = new SolidColorBrush((Color) ColorConverter.ConvertFromString(text_color));
+                p.BackgroundBrush = new SolidColorBrush((Color) ColorConverter.ConvertFromString(background_color));
+                p.TimeoutForegroundBrush = new SolidColorBrush((Color) ColorConverter.ConvertFromString(timeout_text_color));
+                p.TimeoutBackgroundBrush = new SolidColorBrush((Color) ColorConverter.ConvertFromString(timeout_background_color));
+                presets.Add(p);
             }
 
             return presets.ToArray();
+        }
+
+        Image CreateColorSampleImage(Brush brush)
+        {
+            GeometryGroup geometry = new GeometryGroup();
+            geometry.Children.Add(new RectangleGeometry(new Rect(0, 0, 100, 100), 8, 8));
+
+            var geometry_drawing = new GeometryDrawing();
+            geometry_drawing.Geometry = geometry;
+            geometry_drawing.Brush = brush;
+            geometry_drawing.Pen = new Pen(Brushes.Gray, 1);
+
+            var drawing_image = new DrawingImage(geometry_drawing);
+            drawing_image.Freeze();
+
+            Image image = new Image();
+            image.Source = drawing_image;
+            image.HorizontalAlignment = HorizontalAlignment.Center;
+
+            return image;
         }
 
         ContextMenu CreateContextMenu()
         {
             ContextMenu menu = new ContextMenu();
 
-            void add_menu_item(object header, RoutedEventHandler handler)
+            void add_menu_item(object header, Brush brush, RoutedEventHandler handler)
             {
                 MenuItem item = new MenuItem();
                 item.Header = header;
+                if (brush != null) item.Icon = CreateColorSampleImage(brush);
                 item.Click += handler;
                 menu.Items.Add(item);
             }
@@ -154,24 +205,31 @@ namespace PomodoroTimer
             }
 
             if (time_limit.HasValue) {
-                add_menu_item("Stop", MenuItem_StopTimer_Click);
+                add_menu_item("Stop", null, MenuItem_StopTimer_Click);
 
                 add_menu_separator();
             }
 
-            foreach (var preset in LoadPresets())
-            {
-                add_menu_item(preset, MenuItem_StartTimer_Click);
+            foreach (var preset in LoadPresets()) {
+                add_menu_item(preset, preset.BackgroundBrush, MenuItem_StartTimer_Click);
             }
 
-            add_menu_item("Custom", MenuItem_Custom_Click);
+            add_menu_item("Custom", null, MenuItem_Custom_Click);
 
             add_menu_separator();
 
-            add_menu_item("Exit", MenuItem_Exit_Click);
+            add_menu_item("Exit", null, MenuItem_Exit_Click);
 
             return menu;
         }
+
+        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOMOVE = 0x0002;
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
 
         void SetTopMost()
         {
@@ -187,23 +245,53 @@ namespace PomodoroTimer
             }
         }
 
+        void StartTimer(TimeSpan span)
+        {
+            time_limit = DateTime.Now.Add(span);
+
+            UpdateTimeText();
+        }
+
+        void StopTimer()
+        {
+            time_limit = default;
+
+            UpdateTimeText();
+        }
+
         void UpdateTimeText()
         {
-            TimePeriod period = time_limit.HasValue ? time_limit.Value.Subtract(DateTime.Now) : TimeSpan.Zero;
-            TextBlock_Time.Text = period.ToString();
+            TimeSpan span = time_limit.HasValue ? time_limit.Value.Subtract(DateTime.Now) : TimeSpan.Zero;
+            TextBlock_Time.Text = new TimeText(span).Text;
 
-            if (time_limit.HasValue) {
-                if (period.TimeSpan.TotalMilliseconds < 0) {
-                    if (((int) period.TimeSpan.TotalMilliseconds / 500) % 2 == 0) {
-                        Panel.Fill = Brushes.Yellow;
-                    } else {
-                        Panel.Fill = Brushes.White;
+            bool is_timeout()
+            {
+                if (time_limit.HasValue) {
+                    if (span.TotalMilliseconds < 0) {
+                        if (((int) span.TotalMilliseconds / 500) % 2 == 0) {
+                            return true;
+                        }
                     }
+                }
+                return false;
+            }
+
+            if (is_timeout()) {
+                if (preset.HasValue) {
+                    TextBlock_Time.Foreground = preset.Value.TimeoutForegroundBrush;
+                    Panel.Fill = preset.Value.TimeoutBackgroundBrush;
                 } else {
-                    Panel.Fill = Brushes.White;
+                    TextBlock_Time.Foreground = CustomTimeoutForegroundBrush;
+                    Panel.Fill = CustomTimeoutBackgroundBrush;
                 }
             } else {
-                Panel.Fill = Brushes.White;
+                if (preset.HasValue) {
+                    TextBlock_Time.Foreground = preset.Value.ForegroundBrush;
+                    Panel.Fill = preset.Value.BackgroundBrush;
+                } else {
+                    TextBlock_Time.Foreground = CustomForegroundBrush;
+                    Panel.Fill = CustomBackgroundBrush;
+                }
             }
         }
 
@@ -214,14 +302,14 @@ namespace PomodoroTimer
 
         void MenuItem_StopTimer_Click(object sender, RoutedEventArgs e)
         {
-            time_limit = default;
+            StopTimer();
         }
 
         void MenuItem_StartTimer_Click(object sender, RoutedEventArgs e)
         {
-            var item = (MenuItem) sender;
-            var period = (TimePeriod) item.Header;
-            time_limit = DateTime.Now.Add(period.TimeSpan);
+            preset = (Preset) ((MenuItem) sender).Header;
+
+            StartTimer(preset.Value.Duration);
         }
 
         void MenuItem_Custom_Click(object sender, RoutedEventArgs e)
@@ -240,16 +328,19 @@ namespace PomodoroTimer
 
         private void TextBox_Time_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Key == Key.Enter) {
-                time_limit = DateTime.Now.Add(TimePeriod.FromString(TextBox_Time.Text).TimeSpan);
+            if (e.Key == Key.Enter || e.Key == Key.Escape) {
+                if (e.Key == Key.Enter) {
+                    preset = default;
+                    try {
+                        StartTimer(new TimeText(TextBox_Time.Text).TimeSpan);
+                    } catch (Exception) {
+                        StartTimer(TimeSpan.Zero);
+                    }
+                }
 
                 TextBlock_Time.Visibility = Visibility.Visible;
-                TextBox_Time.Text = "";
                 TextBox_Time.Visibility = Visibility.Hidden;
-            } else if (e.Key == Key.Escape) {
-                TextBlock_Time.Visibility = Visibility.Visible;
                 TextBox_Time.Text = "";
-                TextBox_Time.Visibility = Visibility.Hidden;
             }
         }
 
