@@ -9,11 +9,13 @@
 
         Title="Pomodoro Timer" Height="80" Width="180"
         Topmost="True" ShowInTaskbar="False" WindowStyle="None" ResizeMode="NoResize"
-        AllowsTransparency="True" Background="#00000000"
-        
+        AllowsTransparency="True"
+        Background="#00000000"
+
         MouseLeftButtonDown="Window_MouseLeftButtonDown"
         MouseMove="Window_MouseMove"
-        MouseLeftButtonUp="Window_MouseLeftButtonUp" ContextMenuOpening="Window_ContextMenuOpening">
+        MouseLeftButtonUp="Window_MouseLeftButtonUp"
+        ContextMenuOpening="Window_ContextMenuOpening">
 
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="0" UseAeroCaptionButtons="False"/>
