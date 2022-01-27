@@ -255,6 +255,7 @@ namespace PomodoroTimer
         void StopTimer()
         {
             time_limit = default;
+            preset = default;
 
             UpdateTimeText();
         }
