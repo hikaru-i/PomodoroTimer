@@ -53,12 +53,25 @@ namespace PomodoroTimer
 
             private static TimeSpan TextToTimeSpan(string text)
             {
-                Match m = Regex.Match(text, @"^(?:(?:(?:(?<dd>[^:]+):)?(?<hh>[^:]+):)?(?<mm>[^:]+):)?(?<ss>[^:]+)$");
-                int dd = m.Groups["dd"].Success ? int.Parse(m.Groups["dd"].Value) : 0;
-                int hh = m.Groups["hh"].Success ? int.Parse(m.Groups["hh"].Value) : 0;
-                int mm = m.Groups["mm"].Success ? int.Parse(m.Groups["mm"].Value) : 0;
-                int ss = m.Groups["ss"].Success ? int.Parse(m.Groups["ss"].Value) : 0;
-                return TimeSpan.FromSeconds(((dd * 24 + hh) * 60 + mm) * 60 + ss);
+                {
+                    var m = Regex.Match(text, @"^(?:(?<hh>\d+)h)?(?:(?<mm>\d+)*m)?(?:(?<ss>\d+)*s)?$",　RegexOptions.IgnoreCase);
+                    if (m.Success)
+                    {
+                        int dd = m.Groups["dd"].Success ? int.Parse(m.Groups["dd"].Value) : 0;
+                        int hh = m.Groups["hh"].Success ? int.Parse(m.Groups["hh"].Value) : 0;
+                        int mm = m.Groups["mm"].Success ? int.Parse(m.Groups["mm"].Value) : 0;
+                        int ss = m.Groups["ss"].Success ? int.Parse(m.Groups["ss"].Value) : 0;
+                        return TimeSpan.FromSeconds(((dd * 24 + hh) * 60 + mm) * 60 + ss);
+                    }
+                }
+                {
+                    var m = Regex.Match(text, @"^(?:(?:(?:(?<dd>[^:]+):)?(?<hh>[^:]+):)?(?<mm>[^:]+):)?(?<ss>[^:]+)$");
+                    int dd = m.Groups["dd"].Success ? int.Parse(m.Groups["dd"].Value) : 0;
+                    int hh = m.Groups["hh"].Success ? int.Parse(m.Groups["hh"].Value) : 0;
+                    int mm = m.Groups["mm"].Success ? int.Parse(m.Groups["mm"].Value) : 0;
+                    int ss = m.Groups["ss"].Success ? int.Parse(m.Groups["ss"].Value) : 0;
+                    return TimeSpan.FromSeconds(((dd * 24 + hh) * 60 + mm) * 60 + ss);
+                }
             }
 
             private static string TimeSpanToText(TimeSpan span)
