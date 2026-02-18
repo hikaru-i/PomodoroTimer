@@ -54,7 +54,7 @@ namespace PomodoroTimer
             private static TimeSpan TextToTimeSpan(string text)
             {
                 {
-                    var m = Regex.Match(text, @"^(?:(?<hh>\d+)h)?(?:(?<mm>\d+)*m)?(?:(?<ss>\d+)*s)?$",　RegexOptions.IgnoreCase);
+                    var m = Regex.Match(text, @"^(?:(?<dd>\d+)d)?(?:(?<hh>\d+)h)?(?:(?<mm>\d+)*m)?(?:(?<ss>\d+)*s)?$",　RegexOptions.IgnoreCase);
                     if (m.Success)
                     {
                         int dd = m.Groups["dd"].Success ? int.Parse(m.Groups["dd"].Value) : 0;
